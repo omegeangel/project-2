@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, UserPlus, UserMinus, Search, Download, Crown, Calendar } from 'lucide-react';
-import { collection, onSnapshot, doc, updateDoc, query, orderBy } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { superDatabase } from '../../utils/database';
 import { format } from 'date-fns';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -9,20 +8,10 @@ interface UserManagementProps {
   theme?: string;
 }
 
-interface User {
-  id: string;
-  email: string;
-  displayName?: string;
-  discordTag?: string;
-  role: 'user' | 'admin';
-  createdAt: any;
-  lastLogin?: any;
-}
-
 const UserManagement: React.FC<UserManagementProps> = ({ theme = 'dark' }) => {
   const { user: currentUser } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -52,58 +41,45 @@ const UserManagement: React.FC<UserManagementProps> = ({ theme = 'dark' }) => {
   const themeStyles = getThemeClasses();
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      query(collection(db, 'users'), orderBy('createdAt', 'desc')),
-      (snapshot) => {
-        const usersData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as User[];
-        setUsers(usersData);
-        setFilteredUsers(usersData);
+    const loadUsers = () => {
+      try {
+        const allUsers = superDatabase.getAllUsers();
+        setUsers(allUsers);
+        setFilteredUsers(allUsers);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading users:', error);
         setLoading(false);
       }
-    );
+    };
 
-    return unsubscribe;
+    loadUsers();
+    
+    // Refresh every 5 seconds
+    const interval = setInterval(loadUsers, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     const filtered = users.filter(user =>
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.discordTag?.toLowerCase().includes(searchTerm.toLowerCase())
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.username?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredUsers(filtered);
   }, [searchTerm, users]);
 
-  const toggleUserRole = async (userId: string, currentRole: string) => {
-    if (!currentUser?.isSuperAdmin) {
-      alert('Only super admins can change user roles');
-      return;
-    }
-
-    try {
-      const newRole = currentRole === 'admin' ? 'user' : 'admin';
-      await updateDoc(doc(db, 'users', userId), {
-        role: newRole,
-        updatedAt: new Date()
-      });
-    } catch (error) {
-      console.error('Error updating user role:', error);
-      alert('Failed to update user role');
-    }
-  };
-
   const exportUsers = () => {
     const csv = [
-      ['Email', 'Display Name', 'Discord Tag', 'Role', 'Created At'].join(','),
+      ['ID', 'Discord ID', 'Username', 'Email', 'Membership Type', 'Created At', 'Last Seen'].join(','),
       ...filteredUsers.map(user => [
+        user.id,
+        user.discordId,
+        user.username,
         user.email,
-        user.displayName || '',
-        user.discordTag || '',
-        user.role,
-        user.createdAt ? format(user.createdAt.toDate(), 'yyyy-MM-dd') : ''
+        user.membershipType,
+        user.createdAt ? format(new Date(user.createdAt), 'yyyy-MM-dd') : '',
+        user.lastSeen ? format(new Date(user.lastSeen), 'yyyy-MM-dd') : ''
       ].join(','))
     ].join('\n');
 
@@ -198,12 +174,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ theme = 'dark' }) => {
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                           <span className="text-white text-sm font-bold">
-                            {user.email.charAt(0).toUpperCase()}
+                            {user.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
                           </span>
                         </div>
                         <div>
                           <p className={`font-medium ${themeStyles.text}`}>
-                            {user.displayName || 'No name'}
+                            {user.username || 'No username'}
                           </p>
                           <p className={`text-xs ${themeStyles.textMuted} font-mono`}>
                             {user.id.slice(0, 8)}...
@@ -215,51 +191,29 @@ const UserManagement: React.FC<UserManagementProps> = ({ theme = 'dark' }) => {
                       {user.email}
                     </td>
                     <td className={`p-4 ${themeStyles.textSecondary} font-mono text-sm`}>
-                      {user.discordTag || 'Not connected'}
+                      {user.username || 'Not connected'}
                     </td>
                     <td className="p-4">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        user.role === 'admin'
+                        user.membershipType === 'premium'
                           ? 'bg-purple-100 text-purple-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {user.role === 'admin' ? (
+                        {user.membershipType === 'premium' ? (
                           <Crown className="w-3 h-3 mr-1" />
                         ) : (
                           <Users className="w-3 h-3 mr-1" />
                         )}
-                        {user.role}
+                        {user.membershipType}
                       </span>
                     </td>
                     <td className={`p-4 ${themeStyles.textSecondary} text-sm`}>
-                      {user.createdAt ? format(user.createdAt.toDate(), 'MMM dd, yyyy') : 'N/A'}
+                      {user.createdAt ? format(new Date(user.createdAt), 'MMM dd, yyyy') : 'N/A'}
                     </td>
                     <td className="p-4">
-                      {currentUser?.isSuperAdmin && user.id !== currentUser.uid && (
-                        <button
-                          onClick={() => toggleUserRole(user.id, user.role)}
-                          className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold transition-colors ${
-                            user.role === 'admin'
-                              ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                              : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                          }`}
-                        >
-                          {user.role === 'admin' ? (
-                            <>
-                              <UserMinus className="w-3 h-3 mr-1" />
-                              Remove Admin
-                            </>
-                          ) : (
-                            <>
-                              <UserPlus className="w-3 h-3 mr-1" />
-                              Make Admin
-                            </>
-                          )}
-                        </button>
-                      )}
-                      {user.id === currentUser?.uid && (
-                        <span className={`text-xs ${themeStyles.textMuted}`}>Current User</span>
-                      )}
+                      <span className={`text-xs ${themeStyles.textMuted}`}>
+                        Last seen: {user.lastSeen ? format(new Date(user.lastSeen), 'MMM dd') : 'Never'}
+                      </span>
                     </td>
                   </tr>
                 ))
@@ -270,25 +224,20 @@ const UserManagement: React.FC<UserManagementProps> = ({ theme = 'dark' }) => {
       </div>
 
       {/* Role Management Info */}
-      {currentUser?.isSuperAdmin && (
-        <div className={`mt-8 ${themeStyles.card} p-6 rounded-2xl border`}>
-          <h3 className={`text-lg font-bold ${themeStyles.text} mb-4 flex items-center`}>
-            <Shield className="w-5 h-5 mr-2" />
-            Role Management
-          </h3>
-          <div className="space-y-2 text-sm">
-            <p className={themeStyles.textSecondary}>
-              • <strong>Super Admin:</strong> Can promote/demote users and access all features
-            </p>
-            <p className={themeStyles.textSecondary}>
-              • <strong>Admin:</strong> Can view dashboard and manage orders
-            </p>
-            <p className={themeStyles.textSecondary}>
-              • <strong>User:</strong> Regular user with no admin access
-            </p>
-          </div>
+      <div className={`mt-8 ${themeStyles.card} p-6 rounded-2xl border`}>
+        <h3 className={`text-lg font-bold ${themeStyles.text} mb-4 flex items-center`}>
+          <Shield className="w-5 h-5 mr-2" />
+          Membership Types
+        </h3>
+        <div className="space-y-2 text-sm">
+          <p className={themeStyles.textSecondary}>
+            • <strong>Premium:</strong> Users with premium membership benefits
+          </p>
+          <p className={themeStyles.textSecondary}>
+            • <strong>Normal:</strong> Regular users with standard access
+          </p>
         </div>
-      )}
+      </div>
     </div>
   );
 };
