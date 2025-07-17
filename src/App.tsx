@@ -283,12 +283,12 @@ function MainApp() {
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
                 <img 
                   src="/05b5bc0e84997d92e62826cfce30b63a.webp" 
-                  alt="Demon Node Logo" 
+                  alt="JXFRCloud Logo" 
                   className="w-full h-full object-cover"
                 />
               </div>
               <div>
-                <h1 className={`text-lg sm:text-2xl font-bold ${themeStyles.text}`}>Demon Node™</h1>
+                <h1 className={`text-lg sm:text-2xl font-bold ${themeStyles.text}`}>JXFRCloud™</h1>
                 <p className={`text-xs sm:text-sm ${themeStyles.textMuted} hidden sm:block`}>Premium Hosting Solutions</p>
               </div>
             </div>
@@ -802,11 +802,11 @@ function MainApp() {
                 <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shadow-lg overflow-hidden">
                   <img 
                     src="/05b5bc0e84997d92e62826cfce30b63a.webp" 
-                    alt="Demon Node Logo" 
+                    alt="JXFRCloud Logo" 
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <span className={`text-lg sm:text-xl font-bold ${themeStyles.text}`}>Demon Node™</span>
+                <span className={`text-lg sm:text-xl font-bold ${themeStyles.text}`}>JXFRCloud™</span>
               </div>
               <p className={`${themeStyles.textSecondary} text-xs sm:text-sm leading-relaxed`}>
                 Premium hosting solutions designed for Indian gamers and businesses.
@@ -852,7 +852,7 @@ function MainApp() {
             </div>
           </div>
           <div className={`border-t border-white/10 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center ${themeStyles.textSecondary} text-xs sm:text-sm`}>
-            <p>&copy; 2024 Demon Node™. All rights reserved. Made with <Heart className="w-3 h-3 sm:w-4 sm:h-4 inline text-red-400" /> for Indian Gamers.</p>
+            <p>&copy; 2024 JXFRCloud™. All rights reserved. Made with <Heart className="w-3 h-3 sm:w-4 sm:h-4 inline text-red-400" /> for Indian Gamers.</p>
             <p class="text-sm">Powered By JXFR</p>
           </div>
         </div>

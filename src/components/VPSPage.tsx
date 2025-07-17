@@ -242,7 +242,7 @@ const VPSPage: React.FC<VPSPageProps> = ({ theme = 'dark', onBack, onPlanSelect 
           <div className={`${themeStyles.card} p-12 rounded-3xl border hover:border-purple-500/30 transition-all duration-300`}>
             <h2 className={`text-4xl md:text-5xl font-bold ${themeStyles.text} mb-6`}>Ready to Launch Your VPS?</h2>
             <p className={`text-xl ${themeStyles.textSecondary} mb-10 leading-relaxed`}>
-              Join thousands of satisfied customers who trust JXFRCloud™ for their VPS hosting needs.
+              Join thousands of satisfied customers who trust JXFRCloud™ for your VPS hosting needs.
             </p>
             <button 
               onClick={() => document.getElementById('vps-plans')?.scrollIntoView({ behavior: 'smooth' })}

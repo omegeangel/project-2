@@ -1,29 +1,16 @@
 import React, { useState } from 'react';
 import { Search, Eye, CheckCircle, Clock, User, Mail, MessageCircle, Calendar, Package } from 'lucide-react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { superDatabase } from '../../utils/database';
 import { format } from 'date-fns';
 
 interface OrderSearchProps {
   theme?: string;
 }
 
-interface OrderDetails {
-  id: string;
-  username: string;
-  email: string;
-  discordTag: string;
-  planName: string;
-  status: 'pending' | 'confirmed';
-  amount: number;
-  createdAt: any;
-  addons?: any;
-  customerInfo?: any;
-}
 
 const OrderSearch: React.FC<OrderSearchProps> = ({ theme = 'dark' }) => {
   const [searchId, setSearchId] = useState('');
-  const [order, setOrder] = useState<OrderDetails | null>(null);
+  const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -60,10 +47,11 @@ const OrderSearch: React.FC<OrderSearchProps> = ({ theme = 'dark' }) => {
     setOrder(null);
 
     try {
-      const orderDoc = await getDoc(doc(db, 'orders', searchId.trim()));
+      const allOrders = superDatabase.getAllOrders();
+      const foundOrder = allOrders.find(o => o.orderId === searchId.trim() || o.id === searchId.trim());
       
-      if (orderDoc.exists()) {
-        setOrder({ id: orderDoc.id, ...orderDoc.data() } as OrderDetails);
+      if (foundOrder) {
+        setOrder(foundOrder);
       } else {
         setError('Order not found');
       }
@@ -79,12 +67,10 @@ const OrderSearch: React.FC<OrderSearchProps> = ({ theme = 'dark' }) => {
     if (!order) return;
 
     try {
-      await updateDoc(doc(db, 'orders', order.id), {
-        status: 'confirmed',
-        confirmedAt: new Date()
-      });
-      
-      setOrder({ ...order, status: 'confirmed' });
+      const success = superDatabase.confirmOrder(order.orderId);
+      if (success) {
+        setOrder({ ...order, status: 'confirmed' });
+      }
     } catch (error) {
       console.error('Error confirming order:', error);
     }
@@ -179,21 +165,21 @@ const OrderSearch: React.FC<OrderSearchProps> = ({ theme = 'dark' }) => {
                     <label className={`block text-sm font-medium ${themeStyles.textMuted} mb-1`}>Email</label>
                     <p className={`${themeStyles.textSecondary} flex items-center`}>
                       <Mail className="w-4 h-4 mr-2" />
-                      {order.email}
+                      {order.customerInfo?.email}
                     </p>
                   </div>
                   <div>
                     <label className={`block text-sm font-medium ${themeStyles.textMuted} mb-1`}>Discord</label>
                     <p className={`${themeStyles.textSecondary} flex items-center font-mono`}>
                       <MessageCircle className="w-4 h-4 mr-2" />
-                      {order.discordTag}
+                      {order.customerInfo?.discordUsername}
                     </p>
                   </div>
                   <div>
                     <label className={`block text-sm font-medium ${themeStyles.textMuted} mb-1`}>Order Date</label>
                     <p className={`${themeStyles.textSecondary} flex items-center`}>
                       <Calendar className="w-4 h-4 mr-2" />
-                      {order.createdAt ? format(order.createdAt.toDate(), 'PPP') : 'N/A'}
+                      {order.createdAt ? format(new Date(order.createdAt), 'PPP') : 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -208,7 +194,7 @@ const OrderSearch: React.FC<OrderSearchProps> = ({ theme = 'dark' }) => {
                 <div className="space-y-3">
                   <div>
                     <label className={`block text-sm font-medium ${themeStyles.textMuted} mb-1`}>Order ID</label>
-                    <p className={`${themeStyles.textSecondary} font-mono`}>#{order.id}</p>
+                    <p className={`${themeStyles.textSecondary} font-mono`}>#{order.orderId}</p>
                   </div>
                   <div>
                     <label className={`block text-sm font-medium ${themeStyles.textMuted} mb-1`}>Plan Name</label>
@@ -217,22 +203,13 @@ const OrderSearch: React.FC<OrderSearchProps> = ({ theme = 'dark' }) => {
                   <div>
                     <label className={`block text-sm font-medium ${themeStyles.textMuted} mb-1`}>Amount</label>
                     <p className={`${themeStyles.textSecondary} text-lg font-semibold`}>
-                      ₹{order.amount?.toLocaleString() || 'N/A'}
+                      {order.price || 'N/A'}
                     </p>
                   </div>
-                  {order.addons && (
-                    <div>
-                      <label className={`block text-sm font-medium ${themeStyles.textMuted} mb-1`}>Add-ons</label>
-                      <div className={`${themeStyles.card} p-3 rounded-lg border`}>
-                        <p className={`text-sm ${themeStyles.textSecondary}`}>
-                          Extra Units: {order.addons.units || 0}
-                        </p>
-                        <p className={`text-sm ${themeStyles.textSecondary}`}>
-                          Backup Slots: {order.addons.backups || 0}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  <div>
+                    <label className={`block text-sm font-medium ${themeStyles.textMuted} mb-1`}>Type</label>
+                    <p className={`${themeStyles.textSecondary} capitalize`}>{order.type}</p>
+                  </div>
                 </div>
               </div>
             </div>

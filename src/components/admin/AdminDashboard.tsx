@@ -17,8 +17,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { collection, query, onSnapshot, orderBy, limit, doc, updateDoc, where, getDocs } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { superDatabase } from '../../utils/database';
 import { format } from 'date-fns';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import OrderSearch from './OrderSearch';
@@ -86,55 +85,95 @@ const AdminDashboard: React.FC = () => {
   const themeStyles = getThemeClasses();
 
   useEffect(() => {
-    // Real-time stats listeners
-    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      setStats(prev => ({ ...prev, totalUsers: snapshot.size }));
-    });
+    // Load data from SuperDatabase
+    const loadDashboardData = () => {
+      try {
+        const analytics = superDatabase.getAnalytics();
+        const allOrders = superDatabase.getAllOrders();
+        const allUsers = superDatabase.getAllUsers();
+        
+        // Calculate revenue from confirmed orders
+        const revenue = allOrders
+          .filter(order => order.status === 'confirmed')
+          .reduce((sum, order) => {
+            const price = parseInt(order.price.replace(/[₹,]/g, '').split('/')[0]) || 0;
+            return sum + price;
+          }, 0);
 
-    const unsubscribeOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
-      const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
-      
-      const pending = orders.filter(order => order.status === 'pending').length;
-      const confirmed = orders.filter(order => order.status === 'confirmed').length;
-      const revenue = orders
-        .filter(order => order.status === 'confirmed')
-        .reduce((sum, order) => sum + (order.amount || 0), 0);
+        setStats({
+          totalUsers: analytics.totalUsers,
+          totalOrders: analytics.totalOrders,
+          pendingOrders: analytics.pendingOrders,
+          confirmedOrders: analytics.confirmedOrders,
+          totalRevenue: revenue
+        });
 
-      setStats(prev => ({
-        ...prev,
-        totalOrders: orders.length,
-        pendingOrders: pending,
-        confirmedOrders: confirmed,
-        totalRevenue: revenue
-      }));
-    });
-
-    // Recent orders listener
-    const unsubscribeRecentOrders = onSnapshot(
-      query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(5)),
-      (snapshot) => {
-        const orders = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Order[];
-        setRecentOrders(orders);
+        // Get recent orders (last 5)
+        const recent = allOrders.slice(0, 5).map(order => ({
+          id: order.id,
+          userId: order.userId,
+          type: order.type,
+          planName: order.planName,
+          status: order.status,
+          price: order.price,
+          createdAt: order.createdAt,
+          orderId: order.orderId,
+          customerInfo: order.customerInfo
+        }));
+        
+        setRecentOrders(recent);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
         setLoading(false);
       }
-    );
-
-    return () => {
-      unsubscribeUsers();
-      unsubscribeOrders();
-      unsubscribeRecentOrders();
     };
+
+    loadDashboardData();
+    
+    // Refresh data every 5 seconds
+    const interval = setInterval(loadDashboardData, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
-  const confirmOrder = async (orderId: string) => {
+  const confirmOrder = async (orderIdToConfirm: string) => {
     try {
-      await updateDoc(doc(db, 'orders', orderId), {
-        status: 'confirmed',
-        confirmedAt: new Date()
-      });
+      const success = superDatabase.confirmOrder(orderIdToConfirm);
+      if (success) {
+        // Refresh data
+        const analytics = superDatabase.getAnalytics();
+        const allOrders = superDatabase.getAllOrders();
+        
+        const revenue = allOrders
+          .filter(order => order.status === 'confirmed')
+          .reduce((sum, order) => {
+            const price = parseInt(order.price.replace(/[₹,]/g, '').split('/')[0]) || 0;
+            return sum + price;
+          }, 0);
+
+        setStats({
+          totalUsers: analytics.totalUsers,
+          totalOrders: analytics.totalOrders,
+          pendingOrders: analytics.pendingOrders,
+          confirmedOrders: analytics.confirmedOrders,
+          totalRevenue: revenue
+        });
+
+        const recent = allOrders.slice(0, 5).map(order => ({
+          id: order.id,
+          userId: order.userId,
+          type: order.type,
+          planName: order.planName,
+          status: order.status,
+          price: order.price,
+          createdAt: order.createdAt,
+          orderId: order.orderId,
+          customerInfo: order.customerInfo
+        }));
+        
+        setRecentOrders(recent);
+      }
     } catch (error) {
       console.error('Error confirming order:', error);
     }
@@ -142,8 +181,13 @@ const AdminDashboard: React.FC = () => {
 
   const exportData = async (type: 'orders' | 'users') => {
     try {
-      const snapshot = await getDocs(collection(db, type));
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let data: any[] = [];
+      
+      if (type === 'orders') {
+        data = superDatabase.getAllOrders();
+      } else {
+        data = superDatabase.getAllUsers();
+      }
       
       const csv = [
         Object.keys(data[0] || {}).join(','),
@@ -419,12 +463,12 @@ const AdminDashboard: React.FC = () => {
                       </tr>
                     ) : (
                       recentOrders.map((order) => (
-                        <tr key={order.id} className="border-b border-white/5 hover:bg-white/5">
+                        <tr key={order.orderId} className="border-b border-white/5 hover:bg-white/5">
                           <td className={`p-4 ${themeStyles.text} font-mono text-sm`}>
-                            #{order.id.slice(-8)}
+                            #{order.orderId}
                           </td>
                           <td className={`p-4 ${themeStyles.textSecondary}`}>
-                            {order.username || order.email}
+                            {order.customerInfo?.firstName} {order.customerInfo?.lastName}
                           </td>
                           <td className={`p-4 ${themeStyles.textSecondary}`}>
                             {order.planName}
@@ -444,12 +488,12 @@ const AdminDashboard: React.FC = () => {
                             </span>
                           </td>
                           <td className={`p-4 ${themeStyles.textSecondary} text-sm`}>
-                            {order.createdAt ? format(order.createdAt.toDate(), 'MMM dd, yyyy') : 'N/A'}
+                            {order.createdAt ? format(new Date(order.createdAt), 'MMM dd, yyyy') : 'N/A'}
                           </td>
                           <td className="p-4">
                             {order.status === 'pending' && (
                               <button
-                                onClick={() => confirmOrder(order.id)}
+                                onClick={() => confirmOrder(order.orderId)}
                                 className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-sm font-semibold transition-colors"
                               >
                                 Confirm
