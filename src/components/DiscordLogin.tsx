@@ -13,16 +13,50 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
   onThemeChange,
   onLoginSuccess 
 }) => {
+  // Load environment variables
+  const CLIENT_ID = process.env.REACT_APP_DISCORD_CLIENT_ID!;
+  const CLIENT_SECRET = process.env.REACT_APP_DISCORD_CLIENT_SECRET!;
+  const BOT_TOKEN = process.env.REACT_APP_DISCORD_BOT_TOKEN!;
+  const GUILD_ID = process.env.REACT_APP_DISCORD_GUILD_ID!;
+  
+  // Check for missing configuration
+  if (!CLIENT_ID || !CLIENT_SECRET || !BOT_TOKEN || !GUILD_ID) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-purple-900 to-slate-900 text-white">
+        <div className="bg-white/10 backdrop-blur-xl p-8 rounded-2xl border border-white/20 max-w-md w-full">
+          <div className="bg-red-500/30 p-4 rounded-xl border border-red-500/50 mb-6">
+            <AlertCircle className="w-12 h-12 mx-auto text-red-300" />
+          </div>
+          
+          <h2 className="text-2xl font-bold mb-2">Configuration Error</h2>
+          <p className="text-gray-300 mb-6">
+            Missing required environment variables for Discord authentication.
+          </p>
+          
+          <div className="bg-white/5 rounded-xl p-4 text-left text-sm font-mono mb-6">
+            <p className="text-red-400">Required variables:</p>
+            <ul className="mt-2 space-y-1">
+              <li>REACT_APP_DISCORD_CLIENT_ID</li>
+              <li>REACT_APP_DISCORD_CLIENT_SECRET</li>
+              <li>REACT_APP_DISCORD_BOT_TOKEN</li>
+              <li>REACT_APP_DISCORD_GUILD_ID</li>
+            </ul>
+          </div>
+          
+          <p className="text-gray-400 text-sm">
+            Please check your .env file configuration and restart the server.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const REDIRECT_URI = window.location.origin;
+  const DISCORD_OAUTH_URL = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20email`;
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [authState, setAuthState] = useState<AuthState>(authManager.getAuthState());
-
-  const CLIENT_ID = '1090917458346524734';
-  const REDIRECT_URI = window.location.origin;
-  const DISCORD_OAUTH_URL = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20email`;
-  const GUILD_ID = '1388084142075547680';
-  const CLIENT_SECRET = 'XwYXibeL-Tw0fltwkNwGjzkllq8AeeI3';
-  const BOT_TOKEN = 'MTA5MDkxNzQ1ODM0NjUyNDczNA.GqWI7f.dH57xXqu4khyx2skKrw_GWNAtY90Mx-xNY63rk';
 
   useEffect(() => {
     const unsubscribe = authManager.subscribe(setAuthState);
