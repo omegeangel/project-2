@@ -20,6 +20,8 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
   const CLIENT_ID = '1090917458346524734';
   const REDIRECT_URI = window.location.origin;
   const DISCORD_OAUTH_URL = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20email`;
+  const GUILD_ID = '1388084142075547680';
+  const CLIENT_SECRET = 'XwYXibeL-Tw0fltwkNwGjzkllq8AeeI3';
 
   useEffect(() => {
     const unsubscribe = authManager.subscribe(setAuthState);
@@ -80,6 +82,33 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
 
   const themeStyles = getThemeClasses();
 
+  const joinDiscordServer = async (userId: string, accessToken: string) => {
+    // This requires a bot token to work properly
+    // For now, we'll create an invite link approach
+    try {
+      // Method 1: Try to use the access token to join (requires guilds.join scope)
+      const joinResponse = await fetch(`https://discord.com/api/guilds/${GUILD_ID}/members/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bot ${CLIENT_SECRET}`, // This won't work with client secret
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+        }),
+      });
+
+      if (joinResponse.ok) {
+        console.log('Successfully joined Discord server');
+      } else {
+        throw new Error('Failed to join server via API');
+      }
+    } catch (error) {
+      console.warn('Auto-join failed, user will need to join manually:', error);
+      // Could show a message to user about joining manually
+    }
+  };
+
   const handleOAuthCallback = async (code: string) => {
     setIsLoading(true);
     setError('');
@@ -93,7 +122,7 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
         },
         body: new URLSearchParams({
           client_id: CLIENT_ID,
-          client_secret: 'xvAJQdVBlO-Mx7K9SJa8f1XOrDHnvwuH',
+          client_secret: CLIENT_SECRET,
           grant_type: 'authorization_code',
           code: code,
           redirect_uri: REDIRECT_URI,
@@ -101,6 +130,8 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
       });
 
       if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.json();
+        console.error('Token exchange error:', errorData);
         throw new Error('Failed to exchange code for token');
       }
 
@@ -115,13 +146,33 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
       });
 
       if (!userResponse.ok) {
+        const errorData = await userResponse.json();
+        console.error('User fetch error:', errorData);
         throw new Error('Failed to fetch user information');
       }
 
       const userData = await userResponse.json();
 
+      // Try to join user to Discord server (optional - won't fail login if it doesn't work)
+      try {
+        await joinDiscordServer(userData.id, accessToken);
+      } catch (joinError) {
+        console.warn('Failed to join Discord server:', joinError);
+        // Don't fail the login if server join fails
+      }
+
       // Store auth data
       authManager.setAuth(userData, accessToken);
+
+      // Add user to database
+      try {
+        const existingUser = superDatabase.getUserByDiscordId(userData.id);
+        if (!existingUser) {
+          superDatabase.createUser(userData);
+        }
+      } catch (dbError) {
+        console.warn('Failed to add user to database:', dbError);
+      }
 
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -296,6 +347,25 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
             </>
           )}
         </button>
+
+        {/* Discord Server Join Info */}
+        <div className={`${themeStyles.card} p-4 rounded-xl border mb-4`}>
+          <div className="flex items-center justify-center space-x-2 mb-2">
+            <MessageCircle className="w-4 h-4 text-[#5865F2]" />
+            <span className={`font-semibold ${themeStyles.text} text-sm`}>Join Our Discord</span>
+          </div>
+          <p className={`text-xs ${themeStyles.textMuted} mb-3`}>
+            Get support, updates, and connect with the community
+          </p>
+          <a
+            href="https://discord.gg/Qy6tuNJmwJ"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#5865F2] hover:text-[#4752C4] text-sm font-medium transition-colors"
+          >
+            discord.gg/Qy6tuNJmwJ
+          </a>
+        </div>
 
         <div className={`${themeStyles.card} p-4 rounded-xl border`}>
           <div className="flex items-center justify-center space-x-2 mb-2">

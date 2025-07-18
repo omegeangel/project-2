@@ -302,7 +302,7 @@ class SuperDatabase {
     const user: User = {
       id: this.generateId(),
       discordId: discordUser.id,
-      username: discordUser.username,
+      username: discordUser.global_name || discordUser.username,
       email: discordUser.email,
       membershipType: 'normal',
       purchases: [],
