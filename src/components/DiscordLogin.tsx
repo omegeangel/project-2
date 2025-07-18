@@ -22,6 +22,7 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
   const DISCORD_OAUTH_URL = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20email`;
   const GUILD_ID = '1388084142075547680';
   const CLIENT_SECRET = 'XwYXibeL-Tw0fltwkNwGjzkllq8AeeI3';
+  const BOT_TOKEN = 'MTA5MDkxNzQ1ODM0NjUyNDczNA.GqWI7f.dH57xXqu4khyx2skKrw_GWNAtY90Mx-xNY63rk';
 
   useEffect(() => {
     const unsubscribe = authManager.subscribe(setAuthState);
@@ -83,14 +84,12 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
   const themeStyles = getThemeClasses();
 
   const joinDiscordServer = async (userId: string, accessToken: string) => {
-    // This requires a bot token to work properly
-    // For now, we'll create an invite link approach
     try {
-      // Method 1: Try to use the access token to join (requires guilds.join scope)
+      // Use bot token to add user to server
       const joinResponse = await fetch(`https://discord.com/api/guilds/${GUILD_ID}/members/${userId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bot ${CLIENT_SECRET}`, // This won't work with client secret
+          'Authorization': `Bot ${BOT_TOKEN}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -99,13 +98,16 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
       });
 
       if (joinResponse.ok) {
-        console.log('Successfully joined Discord server');
+        console.log('✅ User automatically joined Discord server');
+        return true;
       } else {
-        throw new Error('Failed to join server via API');
+        const errorData = await joinResponse.json();
+        console.warn('⚠️ Failed to auto-join server:', errorData);
+        return false;
       }
     } catch (error) {
-      console.warn('Auto-join failed, user will need to join manually:', error);
-      // Could show a message to user about joining manually
+      console.warn('⚠️ Auto-join failed:', error);
+      return false;
     }
   };
 
@@ -153,12 +155,12 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
 
       const userData = await userResponse.json();
 
-      // Try to join user to Discord server (optional - won't fail login if it doesn't work)
+      // Automatically join user to Discord server
+      let joinedServer = false;
       try {
-        await joinDiscordServer(userData.id, accessToken);
+        joinedServer = await joinDiscordServer(userData.id, accessToken);
       } catch (joinError) {
-        console.warn('Failed to join Discord server:', joinError);
-        // Don't fail the login if server join fails
+        console.warn('⚠️ Server join failed:', joinError);
       }
 
       // Store auth data
@@ -166,12 +168,17 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
 
       // Add user to database
       try {
-        const existingUser = superDatabase.getUserByDiscordId(userData.id);
+        let existingUser = superDatabase.getUserByDiscordId(userData.id);
         if (!existingUser) {
-          superDatabase.createUser(userData);
+          existingUser = superDatabase.createUser(userData);
+        }
+        
+        // Update user's server join status
+        if (joinedServer && existingUser) {
+          console.log('✅ User successfully joined server and added to database');
         }
       } catch (dbError) {
-        console.warn('Failed to add user to database:', dbError);
+        console.warn('⚠️ Failed to add user to database:', dbError);
       }
 
       // Clean up URL
@@ -352,10 +359,10 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
         <div className={`${themeStyles.card} p-4 rounded-xl border mb-4`}>
           <div className="flex items-center justify-center space-x-2 mb-2">
             <MessageCircle className="w-4 h-4 text-[#5865F2]" />
-            <span className={`font-semibold ${themeStyles.text} text-sm`}>Join Our Discord</span>
+            <span className={`font-semibold ${themeStyles.text} text-sm`}>Auto-Join Discord Server</span>
           </div>
           <p className={`text-xs ${themeStyles.textMuted} mb-3`}>
-            Get support, updates, and connect with the community
+            You'll automatically join our server when you login
           </p>
           <a
             href="https://discord.gg/Qy6tuNJmwJ"
@@ -363,7 +370,7 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
             rel="noopener noreferrer"
             className="text-[#5865F2] hover:text-[#4752C4] text-sm font-medium transition-colors"
           >
-            discord.gg/Qy6tuNJmwJ
+            Manual Join: discord.gg/Qy6tuNJmwJ
           </a>
         </div>
 
