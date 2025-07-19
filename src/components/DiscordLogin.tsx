@@ -87,83 +87,32 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
     setServerJoinStatus('pending');
 
     try {
-      // 1. Exchange code for access token
-      const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+      // Call your Vercel API endpoint
+      const response = await fetch('/api/discord-callback', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: CLIENT_ID,
-          client_secret: 'XwYXibeL-Tw0fltwkNwGjzkllq8AeeI3',
-          grant_type: 'authorization_code',
-          code: code,
-          redirect_uri: REDIRECT_URI,
-          scope: 'identify email guilds.join'
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
       });
 
-      if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json();
-        console.error('Token exchange error:', errorData);
-        throw new Error(`Token exchange failed: ${errorData.error_description || 'Unknown error'}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error:', errorData);
+        throw new Error(errorData.details || errorData.error || 'Authentication failed');
       }
 
-      const tokenData = await tokenResponse.json();
-      const accessToken = tokenData.access_token;
+      const data = await response.json();
+      const { user, accessToken, serverJoin } = data;
 
-      // 2. Get user information
-      const userResponse = await fetch('https://discord.com/api/users/@me', {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-
-      if (!userResponse.ok) {
-        const errorData = await userResponse.json();
-        console.error('User fetch error:', errorData);
-        throw new Error(`Failed to fetch user: ${errorData.message || 'Unknown error'}`);
-      }
-
-      const user = await userResponse.json();
-
-      // 3. Add user to Discord server using bot token
-      let joinedServer = false;
-      try {
-        const BOT_TOKEN = 'MTA5MDkxNzQ1ODM0NjUyNDczNA.GqWI7f.dH57xXqu4khyx2skKrw_GWNAtY90Mx-xNY63rk';
-        
-        const joinResponse = await fetch(`https://discord.com/api/guilds/${GUILD_ID}/members/${user.id}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bot ${BOT_TOKEN}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ 
-            access_token: accessToken 
-          })
-        });
-
-        if (joinResponse.ok || joinResponse.status === 204) {
-          console.log(`✅ User ${user.username} (${user.id}) successfully joined server ${GUILD_ID}`);
-          joinedServer = true;
-          setServerJoinStatus('success');
-        } else {
-          const errorData = await joinResponse.json().catch(() => ({}));
-          console.warn('⚠️ Server join failed:', errorData);
-          
-          // Handle specific Discord API errors
-          if (errorData.code === 30007) {
-            throw new Error('Server is full. Please contact support.');
-          } else if (errorData.code === 10007) {
-            console.log('User is already in the server');
-            joinedServer = true;
-            setServerJoinStatus('success');
-          } else {
-            setServerJoinStatus('failed');
-          }
-        }
-      } catch (joinError) {
-        console.error('Server join error:', joinError);
+      // Handle server join status
+      if (serverJoin.success) {
+        setServerJoinStatus('success');
+        console.log(`✅ ${serverJoin.message}`);
+      } else {
         setServerJoinStatus('failed');
+        console.warn(`⚠️ ${serverJoin.message}`);
       }
 
-      // 4. Store auth data and create/update user in database
+      // Store auth data and create/update user in database
       authManager.setAuth(user, accessToken);
       
       // Add user to SuperDatabase
@@ -179,7 +128,7 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
         console.error('Database error:', dbError);
       }
 
-      // 5. Clean up URL and redirect
+      // Clean up URL and redirect
       window.history.replaceState({}, document.title, window.location.pathname);
 
       if (onLoginSuccess) onLoginSuccess();
