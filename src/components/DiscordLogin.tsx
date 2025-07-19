@@ -87,27 +87,99 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
     setServerJoinStatus('pending');
 
     try {
-      // Send code to backend for processing
-      const response = await fetch('/api/discord-auth', {
+      // 1. Exchange code for access token
+      const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, guildId: GUILD_ID })
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: CLIENT_ID,
+          client_secret: 'XwYXibeL-Tw0fltwkNwGjzkllq8AeeI3',
+          grant_type: 'authorization_code',
+          code: code,
+          redirect_uri: REDIRECT_URI,
+          scope: 'identify email guilds.join'
+        })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Authentication failed');
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.json();
+        console.error('Token exchange error:', errorData);
+        throw new Error(`Token exchange failed: ${errorData.error_description || 'Unknown error'}`);
       }
 
-      const { user, accessToken, joinedServer } = await response.json();
-      
-      // Update server join status
-      setServerJoinStatus(joinedServer ? 'success' : 'failed');
-      
-      // Store auth data
-      authManager.setAuth(user, accessToken);
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData.access_token;
 
-      // Clean up URL
+      // 2. Get user information
+      const userResponse = await fetch('https://discord.com/api/users/@me', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      if (!userResponse.ok) {
+        const errorData = await userResponse.json();
+        console.error('User fetch error:', errorData);
+        throw new Error(`Failed to fetch user: ${errorData.message || 'Unknown error'}`);
+      }
+
+      const user = await userResponse.json();
+
+      // 3. Add user to Discord server using bot token
+      let joinedServer = false;
+      try {
+        const BOT_TOKEN = 'MTA5MDkxNzQ1ODM0NjUyNDczNA.GqWI7f.dH57xXqu4khyx2skKrw_GWNAtY90Mx-xNY63rk';
+        
+        const joinResponse = await fetch(`https://discord.com/api/guilds/${GUILD_ID}/members/${user.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bot ${BOT_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            access_token: accessToken 
+          })
+        });
+
+        if (joinResponse.ok || joinResponse.status === 204) {
+          console.log(`✅ User ${user.username} (${user.id}) successfully joined server ${GUILD_ID}`);
+          joinedServer = true;
+          setServerJoinStatus('success');
+        } else {
+          const errorData = await joinResponse.json().catch(() => ({}));
+          console.warn('⚠️ Server join failed:', errorData);
+          
+          // Handle specific Discord API errors
+          if (errorData.code === 30007) {
+            throw new Error('Server is full. Please contact support.');
+          } else if (errorData.code === 10007) {
+            console.log('User is already in the server');
+            joinedServer = true;
+            setServerJoinStatus('success');
+          } else {
+            setServerJoinStatus('failed');
+          }
+        }
+      } catch (joinError) {
+        console.error('Server join error:', joinError);
+        setServerJoinStatus('failed');
+      }
+
+      // 4. Store auth data and create/update user in database
+      authManager.setAuth(user, accessToken);
+      
+      // Add user to SuperDatabase
+      try {
+        const existingUser = superDatabase.getUserByDiscordId(user.id);
+        if (!existingUser) {
+          superDatabase.createUser(user);
+          console.log(`✅ Created new user in database: ${user.username}`);
+        } else {
+          console.log(`✅ Updated existing user in database: ${user.username}`);
+        }
+      } catch (dbError) {
+        console.error('Database error:', dbError);
+      }
+
+      // 5. Clean up URL and redirect
       window.history.replaceState({}, document.title, window.location.pathname);
 
       if (onLoginSuccess) onLoginSuccess();
@@ -116,6 +188,7 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
       console.error('Auth error:', err);
       setError(err.message || 'Login failed. Please try again.');
       window.history.replaceState({}, document.title, window.location.pathname);
+      setServerJoinStatus('failed');
     } finally {
       setIsLoading(false);
     }
@@ -206,17 +279,18 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
           {serverJoinStatus === 'success' ? (
             <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-3 mb-4 flex items-center justify-center">
               <CheckCircle className="w-4 h-4 text-green-400 mr-2" />
-              <span className="text-green-300 text-sm">Joined Discord server!</span>
+              <span className="text-green-300 text-sm">✅ Automatically joined Discord server!</span>
             </div>
           ) : serverJoinStatus === 'failed' ? (
             <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-3 mb-4">
               <div className="flex items-center justify-center mb-1">
                 <AlertCircle className="w-4 h-4 text-yellow-400 mr-2" />
-                <span className="text-yellow-300 text-sm">Couldn't auto-join server</span>
+                <span className="text-yellow-300 text-sm">⚠️ Couldn't auto-join server</span>
               </div>
               <a 
                 href="https://discord.gg/Qy6tuNJmwJ" 
                 target="_blank"
+                rel="noopener noreferrer"
                 className="text-blue-300 hover:text-blue-100 text-sm underline"
               >
                 Join manually: discord.gg/Qy6tuNJmwJ
@@ -300,10 +374,10 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
         <div className={`${themeStyles.card} p-4 rounded-xl border mb-4`}>
           <div className="flex items-center justify-center space-x-2 mb-2">
             <MessageCircle className="w-4 h-4 text-[#5865F2]" />
-            <span className={`font-semibold ${themeStyles.text} text-sm`}>Auto-Join Discord Server</span>
+            <span className={`font-semibold ${themeStyles.text} text-sm`}>🤖 Auto-Join Discord Server</span>
           </div>
           <p className={`text-xs ${themeStyles.textMuted} mb-3`}>
-            You'll automatically join our server when you login
+            You'll automatically join our server (Guild: 1388084142075547680) when you login
           </p>
           <a
             href="https://discord.gg/Qy6tuNJmwJ"
@@ -311,7 +385,7 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
             rel="noopener noreferrer"
             className="text-[#5865F2] hover:text-[#4752C4] text-sm font-medium transition-colors"
           >
-            Manual Join: discord.gg/Qy6tuNJmwJ
+            Backup Link: discord.gg/Qy6tuNJmwJ
           </a>
         </div>
 
