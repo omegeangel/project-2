@@ -40,6 +40,8 @@ class AuthManager {
       this.listeners = this.listeners.filter(l => l !== listener);
     };
   }
+    };
+  }
 
   private loadFromStorage() {
     try {
