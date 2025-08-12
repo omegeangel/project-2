@@ -242,7 +242,7 @@ const HostingPage: React.FC<HostingPageProps> = ({ theme = 'dark', onBack, onPla
           <div className={`${themeStyles.card} p-12 rounded-3xl border hover:border-purple-500/30 transition-all duration-300`}>
             <h2 className={`text-4xl md:text-5xl font-bold ${themeStyles.text} mb-6`}>Ready to Start Your Server?</h2>
             <p className={`text-xl ${themeStyles.textSecondary} mb-10 leading-relaxed`}>
-              Join thousands of satisfied customers who trust JXFRCloud™ for their Minecraft hosting needs.
+              Join thousands of satisfied customers who trust ᴠᴏʀᴛᴇx ᴄʟᴏᴜᴅ ™ for their Minecraft hosting needs.
             </p>
             <button 
               onClick={() => document.getElementById('hosting-plans')?.scrollIntoView({ behavior: 'smooth' })}

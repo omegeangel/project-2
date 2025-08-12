@@ -193,7 +193,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ selectedPlan, selectedAddons,
           ],
           timestamp: new Date().toISOString(),
           footer: {
-            text: "JXFRCloud™ Minecraft Hosting"
+            text: "ᴠᴏʀᴛᴇx ᴄʟᴏᴜᴅ ™ Minecraft Hosting"
           }
         }
       ]

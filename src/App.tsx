@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { 
   Globe, 
   Server, 
@@ -40,7 +40,6 @@ import VPSPage from './components/VPSPage';
 import VPSOrderForm from './components/VPSOrderForm';
 import DiscordLogin from './components/DiscordLogin';
 import UserProfile from './components/UserProfile';
-import AdminRouter from './components/admin/AdminRouter';
 import { authManager, type AuthState } from './utils/auth';
 import { superDatabase } from './utils/database';
 
@@ -53,7 +52,6 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/admin/*" element={<AdminRouter />} />
         <Route path="/*" element={<MainApp />} />
       </Routes>
     </Router>
@@ -288,7 +286,7 @@ function MainApp() {
                 />
               </div>
               <div>
-                <h1 className={`text-lg sm:text-2xl font-bold ${themeStyles.text}`}>JXFRCloud™</h1>
+                <h1 className={`text-lg sm:text-2xl font-bold ${themeStyles.text}`}>ᴠᴏʀᴛᴇx ᴄʟᴏᴜᴅ ™</h1>
                 <p className={`text-xs sm:text-sm ${themeStyles.textMuted} hidden sm:block`}>Premium Hosting Solutions</p>
               </div>
             </div>
@@ -752,7 +750,7 @@ function MainApp() {
           <div className={`${themeStyles.card} p-8 sm:p-12 rounded-3xl border hover:border-purple-500/30 transition-all duration-300`}>
             <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold ${themeStyles.text} mb-4 sm:mb-6`}>Ready to Get Started?</h2>
             <p className={`text-lg sm:text-xl ${themeStyles.textSecondary} mb-8 sm:mb-10 leading-relaxed`}>
-              Join thousands of satisfied customers who trust Demon Node™ for their digital needs.
+              Join thousands of satisfied customers who trust ᴠᴏʀᴛᴇx ᴄʟᴏᴜᴅ ™ for their digital needs.
             </p>
             {/* Special Offers Banner */}
             {specialOffers.length > 0 && (

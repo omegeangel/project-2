@@ -58,12 +58,15 @@ const MinecraftHero: React.FC<MinecraftHeroProps> = ({ theme = 'dark', onScrollT
           <span className={`text-sm font-semibold ${themeStyles.text}`}>🎮 Premium Minecraft Hosting</span>
         </div>
 
-        <h1 className={`text-5xl md:text-7xl font-bold ${themeStyles.text} mb-6 leading-tight`}>
-          Unleash Your{' '}
-          <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent animate-pulse">
-            Minecraft World
-          </span>
-        </h1>
+        <div className="text-center mb-4">
+          <h1 className={`text-2xl md:text-3xl font-bold ${themeStyles.text} mb-2`}>ᴠᴏʀᴛᴇx ᴄʟᴏᴜᴅ ™</h1>
+          <h2 className={`text-4xl md:text-6xl font-bold ${themeStyles.text} mb-6 leading-tight`}>
+            Unleash Your{' '}
+            <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent animate-pulse">
+              Minecraft World
+            </span>
+          </h2>
+        </div>
         
         <p className={`text-xl md:text-2xl ${themeStyles.textSecondary} mb-12 max-w-4xl mx-auto leading-relaxed`}>
           Experience lag-free gaming with our premium Minecraft hosting. Indian servers, instant setup, and plans starting from just ₹49/month.

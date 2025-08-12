@@ -282,7 +282,7 @@ const DiscordLogin: React.FC<DiscordLoginProps> = ({
             />
           </div>
           <div>
-            <h1 className={`text-2xl font-bold ${themeStyles.text}`}>JXFRCloud™</h1>
+            <h1 className={`text-2xl font-bold ${themeStyles.text}`}>ᴠᴏʀᴛᴇx ᴄʟᴏᴜᴅ ™</h1>
             <p className={`text-sm ${themeStyles.textMuted}`}>Premium Hosting Solutions</p>
           </div>
         </div>
